@@ -20,7 +20,7 @@
 #' 
 #' @return data.frame of standard HMD output, except the Age column has been cleaned, and a new open age indicator column has been added. If the file is Population.txt or Population5.txt, there will be two columns each for males and females.
 #' 
-#' @details Population counts in the HMD typically refer to Jan 1st. One exception are years in which a territorial adjustment has been accounted for in estimates. For such years, `YYYY-` refers to Dec 31 of the year before the adjustment, and `YYYY+` refers to Jan 1 directly after the adjustment (adjustments are always made Jan 1st). In the data, it will just look like two different estimates for the same year, but in fact it is a definitional change or similar. In order to remove headaches from potential territorial adjustments in the data, we simply create two columns, one for January 1st (e.g.,\code{"Female1"}) and another for Dec 31st (e.g.,\code{"Female2"}) . One can recover the adjustment coefficient for each year by taking the ratio $$Vx = P1(t+1) / P2(t)$$. In most years this will be 1, but in adjustment years there is a difference. This must always be accounted for when calculating rates and exposures. Argument \code{fixup} is outsourced to \code{HMDparse()}.
+#' @details Population counts in the HMD typically refer to Jan 1st. One exception are years in which a territorial adjustment has been accounted for in estimates. For such years, `YYYY-` refers to Dec 31 of the year before the adjustment, and `YYYY+` refers to Jan 1 directly after the adjustment (adjustments are always made Jan 1st). In the data, it will just look like two different estimates for the same year, but in fact it is a definition change or similar. In order to remove headaches from potential territorial adjustments in the data, we simply create two columns, one for January 1st (e.g.,\code{"Female1"}) and another for Dec 31st (e.g.,\code{"Female2"}) . One can recover the adjustment coefficient for each year by taking the ratio $$Vx = P1(t+1) / P2(t)$$. In most years this will be 1, but in adjustment years there is a difference. This must always be accounted for when calculating rates and exposures. Argument \code{fixup} is outsourced to \code{HMDparse()}.
 #' 
 #' @importFrom utils read.table
 #' 
@@ -45,10 +45,10 @@ readHMD <- function(filepath, fixup = TRUE, ...){
 #' 
 #' @description This is a basic HMD data grabber, based on Carl Boe's original \code{HMD2R()}. It will only grab a single HMD statistical product from a single country. Some typical R pitfalls are removed: The Age column is coerced to integer, while an AgeInterval column is created. Also Population counts are placed into two columns, for Jan. 1st and Dec. 31 of the same year, so as to remove headaches from population universe adjustments, such as territorial changes. Fewer options means less to break. To do more sophisticated data extraction, iterate over country codes or statistical items. Reformatting can be done outside this function using, e.g., \code{long2mat()}. Argument \code{fixup} is outsourced to \code{HMDparse()}.
 #'
-#' @param CNTRY HMD population letter code. If not spelled right, or not specified, the function provides a selection list. Only 1.
-#' @param item the statistical product you want, e.g., \code{"fltper_1x1"}. Only 1.
-#' @param username usually the email address you registered with the HMD under. If left blank, you'll be prompted. Do that if you don't mind the typing and prefer not to save your username in your code.
-#' @param password Your HMD password. If left blank, you'll be prompted. Do that if you don't mind the typing and prefer not to save your password in your code.
+#' @param CNTRY character. HMD population letter code. If not spelled right, or not specified, the function provides a selection list. Only 1.
+#' @param item character. The statistical product you want, e.g., \code{"fltper_1x1"}. Only 1.
+#' @param username character. Your HMD user id, usually the email address you registered with the HMD under. If left blank, you'll be prompted. Do that if you don't mind the typing and prefer not to save your username in your code.
+#' @param password character. Your HMD password. If left blank, you'll be prompted. Do that if you don't mind the typing and prefer not to save your password in your code.
 #' @param fixup logical. Should columns be made more user-friendly, e.g., forcing Age to be integer?
 #' 
 #' @return data.frame of the HMD product, read as as \code{readHMD()} would read it.
@@ -61,15 +61,15 @@ readHMD <- function(filepath, fixup = TRUE, ...){
 #' @importFrom RCurl url.exists
 #' @importFrom utils read.csv
 #' @importFrom utils read.table
-#' 
+#' @importFrom httr GET content authenticate config
 #' @export
 #' 
-readHMDweb <- function(CNTRY = NULL, item = NULL, username = NULL, password = NULL, fixup = TRUE){
+readHMDweb <- function(CNTRY, item, username, password, fixup = TRUE){
 	## based on Carl Boe's RCurl tips
 	# modified by Tim Riffe 
 	
 	# let user input name and password
-	if (is.null(username)){
+	if (missing(username)){
 		if (interactive()){
 			cat("\ntype in HMD username (usually your email, quotes not necessary):\n")
 			username <- userInput(FALSE)
@@ -77,7 +77,7 @@ readHMDweb <- function(CNTRY = NULL, item = NULL, username = NULL, password = NU
 			stop("if username and password not given as arguments, the R session must be interactive.")
 		}
 	}
-	if (is.null(password)){
+	if (missing(password)){
 		if (interactive()){
 			cat("\ntype in HMD password:\n")
 			password <-  userInput(FALSE)
@@ -86,16 +86,17 @@ readHMDweb <- function(CNTRY = NULL, item = NULL, username = NULL, password = NU
 		}
 	}
 	
-	urlbase         <- "http://www.mortality.org/hmd"
-#    tf <- tempfile()
-#    on.exit(unlink(tf))
-	this.url    <- "http://www.mortality.org/countries.csv"
-	cntries     <- RCurl::getURL(this.url)
-	ctrylist    <- read.csv(text = cntries,header=TRUE,as.is=TRUE);
-	ctrylookup  <- data.frame(Country=ctrylist$Country, CNTRY=ctrylist$Subpop.Code.1, stringsAsFactors = FALSE)
+	ctrylist    <- read.csv(
+			         "https://www.mortality.org/countries.csv",
+			         header = TRUE,
+			         as.is = TRUE)
+			
+	ctrylookup  <- data.frame(Country = ctrylist$Country, 
+			                  CNTRY = ctrylist$Subpop.Code.1, 
+							  stringsAsFactors = FALSE)
 	
 	# get CNTRY
-	if(is.null(CNTRY)){    
+	if (missing(CNTRY)){    
 		cat("\nCNTRY missing\n")
 		if (interactive()){
 			CNTRY <- select.list(choices = ctrylookup$CNTRY, multiple = FALSE, title = "Select Country Code")
@@ -113,85 +114,50 @@ readHMDweb <- function(CNTRY = NULL, item = NULL, username = NULL, password = NU
 	}
 	stopifnot(length(CNTRY) == 1)
 	
-	this.pw <- paste(username, password, sep = ":")
-	
-	## reuse handle, reduce connection starts
-	handle <- RCurl::getCurlHandle(userpwd = this.pw)
-	
-	dirjunk <- RCurl::getURL(file.path("www.mortality.org", "hmd", CNTRY,
-					paste0("STATS",.Platform$file.sep)), curl = handle)
-	
-	if (RCurl::getCurlInfo(handle)$response.code == 401) {
-		stop("Authentication rejected: please check your username and password")
-	}
-	dirjunk <- RCurl::getURL(file.path("www.mortality.org","hmd",CNTRY,"STATS/"), curl=handle)
-	
-	# check if authentication fails
-	if (RCurl::getCurlInfo(handle)$response.code == 401){
-		stop("Authentication rejected: please check your username and password")
-	}
-	# sometime redirects will break this, so we do it manually if necessary...
-	if (RCurl::getCurlInfo(handle)$response.code == 301){
-		dirjunk <- RCurl::getURL(getCurlInfo(handle)$redirect.url, curl = handle)
-	}
-	
-	# TR: this is the kind of parsing I hate. Gotta be a better way out there.
-	parts <- gsub(pattern = "\\\"",
-			replacement = "",
-			unlist(lapply(strsplit(unlist(strsplit(dirjunk
-													,split="href=")),
-									split = ">"),"[[",1)))
-	allitems <- gsub(pattern = ".txt",replacement = "",parts[grepl(parts,pattern=".txt")])
-	
-	if (is.null(item)){
+	# repeat for item
+	itemlookup <- getHMDitemavail(CNTRY, username = username, password = password)
+	if (missing(item)){    
+		cat("\nCNTRY missing\n")
 		if (interactive()){
-			cat("\nThe following items are available for", CNTRY,"\n")
-			item <- select.list(choices = allitems, 
-					multiple = FALSE,
-					title = "Select one")
+			item <- select.list(choices = itemlookup, multiple = FALSE, title = "Select item Code")
 		} else {
-			stop("item must be one of the following for",CNTRY,paste(allitems,collapse=",\n"))
+			stop("item should be one of these:\n",paste(itemlookup, collapse = ",\n"))
 		}
 	}
-	if (!item %in% allitems){
+	if (!(item %in% itemlookup)){
+		cat("\nCNTRY not found\n")
 		if (interactive()){
-			if (any(grepl(allitems, pattern = item))){
-				cat("\nMust specify item fully\n")    
-				item <- select.list(choices = allitems[grepl(allitems, pattern = item)], 
-						multiple = FALSE,
-						title = "Select one")
-			} else {
-				cat("\nThe following items are available for", CNTRY,"\n")
-				item <- select.list(choices = allitems, 
-						multiple = FALSE,
-						title = "Select one")
-			}
+			item <- select.list(choices = itemlookup, multiple = FALSE, title = "Select item Code")
 		} else {
-			stop("item must be one of the following for",CNTRY,paste(allitems,collapse=",\n"))
+			stop("item should be one of these:\n",paste(itemlookup, collapse = ",\n"))
 		}
 	}
+	stopifnot(length(item) == 1)
+
 	
-	# build url: 
-    # TR: presumably these links are composed with the same separators everywhere?
-	HMDurl <- paste("www.mortality.org", "hmd", CNTRY, "STATS", paste0(item, ".txt"), sep = "/")
-	
-	#check it exists:
-    # TR: this is like way extra, since both CNTRY and item have gone through filters by now
-	if (RCurl::url.exists(HMDurl,curl=handle)){
-		handle <- RCurl::getCurlHandle(userpwd = this.pw)
-		# grab the data
-		dataIN  <- RCurl::getURL(HMDurl, curl=handle)
-		
-		# rest of this lifted from readHMD()
-		DF      <- read.table(text = dataIN, header = TRUE, skip = 2, na.strings = ".", as.is = TRUE)
-		if (fixup){
-			DF        <- HMDparse(DF, filepath = item)
-		}
-		
-		return(invisible(DF))
-	} else {
-		cat("\nSorry, something was wrong with the query\nPossibly a typo?\n")
+	path <- paste0("https://www.mortality.org/hmd/", CNTRY, "/STATS/", item)
+#	txt  <- RCurl::getURL(path, userpwd = paste0(username, ":", password))
+    TEXT    <- httr::GET(path, 
+					httr::authenticate(username, password), 
+					httr::config(ssl_verifypeer = 0L))
+	status  <- httr::http_status(TEXT)
+	if (grepl(status$category,pattern="error")){
+		cat("Sorry something went wrong, maybe a typo?")
+		return(NULL)
 	}
+
+	DF      <- read.table(
+			      text = httr::content(TEXT,encoding = "UTF-8"), 
+			      header = TRUE, 
+			      skip = 2, 
+			      na.strings = ".", 
+			      as.is = TRUE)
+	
+	if (fixup){
+		DF        <- HMDparse(DF, filepath = item)
+	}
+	
+  invisible(DF)
 } # end readHMDweb()
 
 ############################################################################
@@ -201,7 +167,7 @@ readHMDweb <- function(CNTRY = NULL, item = NULL, username = NULL, password = NU
 #'
 #' @title read data from the Japan Mortality Database into R
 #' 
-#' @description JMD data are formatted exactly as HMD data. This function simply parses the necessary url together given a prefecture code and data item (same nomenclature as HMD). Data is parsed using \code{HMDparse()}, which converts columns into useful and intuitive classes, for ready-use. See \code{?HMDparse} for more information on type conversions. No authentification is required for this database. Only a single item/prefecture is downloaded. Loop for more complex calls (See examples). The prefID is not appended as a column, so be mindful of this if appending several items together into a single \code{data.frame}. Note that at the time of this writing, the finest Lexis resolution for prefectural lifetables is 5x5 (5-year, 5-year age groups). Raw data are, however, provided in 1x1 format, and deaths are also available in triangles.
+#' @description JMD data are formatted exactly as HMD data. This function simply parses the necessary url together given a prefecture code and data item (same nomenclature as HMD). Data is parsed using \code{HMDparse()}, which converts columns into useful and intuitive classes, for ready-use. See \code{?HMDparse} for more information on type conversions. No authentication is required for this database. Only a single item/prefecture is downloaded. Loop for more complex calls (See examples). The prefID is not appended as a column, so be mindful of this if appending several items together into a single \code{data.frame}. Note that at the time of this writing, the finest Lexis resolution for prefectural lifetables is 5x5 (5-year, 5-year age groups). Raw data are, however, provided in 1x1 format, and deaths are also available in triangles.
 #' 
 #' @param prefID a single prefID 2-digit character string, ranging from \code{"00"} to \code{"47"}.
 #' @param item the statistical product you want, e.g., \code{"fltper_5x5"}. Only 1.
