@@ -53,7 +53,7 @@ readHMD <- function(filepath, fixup = TRUE, ...){
 #' 
 #' @return data.frame of the HMD product, read as as \code{readHMD()} would read it.
 #'
-#' @details You need to register for HMD: \url{www.mortality.org}. It is advised to pass in your credentials as named vectors rather than directly as character strings, so that they are not saved directly in your code. See examples. One option is to just save them in your Rprofile file.
+#' @details You need to register for HMD: \url{https://www.mortality.org}. It is advised to pass in your credentials as named vectors rather than directly as character strings, so that they are not saved directly in your code. See examples. One option is to just save them in your Rprofile file.
 #' 
 #' @importFrom RCurl getURL
 #' @importFrom RCurl getCurlHandle
@@ -217,7 +217,7 @@ readJMDweb <- function(prefID = "01", item = "Deaths_5x5", fixup = TRUE, ...){
 #'
 #' @title read data from the Canadian Human Mortality Database into R
 #' 
-#' @description CHMD data are formatted exactly as HMD data. This function simply parses the necessary url together given a province code and data item (same nomenclature as HMD). Data is parsed using \code{HMDparse()}, which converts columns into useful and intuitive classes, for ready-use. See \code{?HMDparse} for more information on type conversions. No authentification is required for this database. Only a single item/prefecture is downloaded. Loop for more complex calls (See examples). The provID is not appended as a column, so be mindful of this if appending several items together into a single \code{data.frame}. Note that at the time of this writing, the finest Lexis resolution for prefectural lifetables is 5x5 (5-year, 5-year age groups). Raw data are, however, provided in 1x1 format, and deaths are also available in triangles. Note that cohort data are not produced for Canada at this time (but you could produce such data by starting with the \code{Deaths\_Lexis} file...).
+#' @description CHMD data are formatted exactly as HMD data. This function simply parses the necessary url together given a province code and data item (same nomenclature as HMD). Data is parsed using \code{HMDparse()}, which converts columns into useful and intuitive classes, for ready-use. See \code{?HMDparse} for more information on type conversions. No authentication is required for this database. Only a single item/prefecture is downloaded. Loop for more complex calls (See examples). The provID is not appended as a column, so be mindful of this if appending several items together into a single \code{data.frame}. Note that at the time of this writing, the finest Lexis resolution for prefectural lifetables is 5x5 (5-year, 5-year age groups). Raw data are, however, provided in 1x1 format, and deaths are also available in triangles. Note that cohort data are not produced for Canada at this time (but you could produce such data by starting with the \code{Deaths\_Lexis} file...).
 #' 
 #' @param provID a single provID 3 character string, as returned by \code{getCHMDprovinces()}.
 #' @param item the statistical product you want, e.g., \code{"fltper_5x5"}. Only 1.

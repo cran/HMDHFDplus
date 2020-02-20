@@ -52,11 +52,10 @@ readHFD <- function(filepath, fixup = TRUE,...){
 #' @param password your HFD password. Don't make this a sensitive password, as things aren't encrypted.
 #' @param fixup logical. Should columns be made more user-friendly, e.g., forcing Age to be integer?
 #' @param Update character string of 8-digit date code of the format \code{"YYYYMMDD"}. Defaults to most recent update.
-#' @param ... optional arguments passed to \code{read.table}. Probably not needed.
 #' 
 #' @return data.frame of the given HFD data file, modified in some friendly ways.
 #'
-#' @details You need to register for HFD to use this function: \url{www.humanfertility.org}. It is advised to pass in your credentials as named vectors rather than directly as character strings, so that they are not saved directly in your code. See examples. One option is to just save them in your Rprofile file.
+#' @details You need to register for HFD to use this function: \url{https://www.humanfertility.org}. It is advised to pass in your credentials as named vectors rather than directly as character strings, so that they are not saved directly in your code. See examples. One option is to just save them in your Rprofile file.
 #' 
 #' @importFrom httr GET content
 #' @importFrom utils select.list
