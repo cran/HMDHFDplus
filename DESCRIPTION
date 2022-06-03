@@ -2,8 +2,8 @@ Package: HMDHFDplus
 Type: Package
 Title: Read Human Mortality Database and Human Fertility Database Data
         from the Web
-Version: 1.9.13
-Date: 2020-02-19
+Version: 1.9.17
+Date: 2022-06-02
 Authors@R: c(
    person("Tim", "Riffe", role = c("aut", "cre"), 
           email = "tim.riffe@gmail.com"),
@@ -11,7 +11,7 @@ Authors@R: c(
    person("Jason", "Hilton", role = "aut"),
    person("Josh", "Goldstein", role = "ctb"),
    person("Stephen", "Holzman", role = "ctb"))
-Description: Utilities for reading data from the Human Mortality Database (<https://www.mortality.org>), Human Fertility Database (<https://www.humanfertility.org>), and similar databases from the web or locally into an R session as data.frame objects. These are the two most widely used sources of demographic data to study basic demographic change, trends, and develop new demographic methods. Other supported databases at this time include the Human Fertility Collection (<http://www.fertilitydata.org/>), The Japanese Mortality Database (<http://www.ipss.go.jp/p-toukei/JMD>), and the Canadian Human Mortality Database (<http://www.bdlc.umontreal.ca/chmd/>). Arguments and data are standardized.
+Description: Utilities for reading data from the Human Mortality Database (<https://www.mortality.org>), Human Fertility Database (<https://www.humanfertility.org>), and similar databases from the web or locally into an R session as data.frame objects. These are the two most widely used sources of demographic data to study basic demographic change, trends, and develop new demographic methods. Other supported databases at this time include the Human Fertility Collection (<https://www.fertilitydata.org>), The Japanese Mortality Database (<https://www.ipss.go.jp/p-toukei/JMD/index-en.html>), and the Canadian Human Mortality Database (<http://www.bdlc.umontreal.ca/chmd/>). Arguments and data are standardized.
 URL: https://github.com/timriffe/TR1
 BugReports: https://github.com/timriffe/TR1/issues
 License: GPL-2
@@ -20,10 +20,11 @@ Encoding: UTF-8
 Depends: R (>= 3.1.2),
 Collate: 'age2int.R' 'HFDutils.R' 'HMDutils.R' 'readHFD.R' 'readHMD.R'
         'userInput.R'
-Imports: RCurl, XML, httr
-RoxygenNote: 7.0.2
+Imports: XML, httr, rvest
+Suggests: RCurl
+RoxygenNote: 7.2.0
 NeedsCompilation: no
-Packaged: 2020-02-20 07:42:32 UTC; tim
+Packaged: 2022-06-03 12:31:48 UTC; tim
 Author: Tim Riffe [aut, cre],
   Carl Boe [aut],
   Jason Hilton [aut],
@@ -31,4 +32,4 @@ Author: Tim Riffe [aut, cre],
   Stephen Holzman [ctb]
 Maintainer: Tim Riffe <tim.riffe@gmail.com>
 Repository: CRAN
-Date/Publication: 2020-02-20 07:50:10 UTC
+Date/Publication: 2022-06-03 16:10:09 UTC
