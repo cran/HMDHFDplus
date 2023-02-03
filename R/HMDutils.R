@@ -79,14 +79,32 @@ HMDparse <- function(DF, filepath){
 #' 
 #' @return a vector of HMD country short codes.
 #' 
-#' @importFrom utils read.csv
+#' @importFrom rvest read_html html_element html_elements html_attr html_text2
+#' @importFrom dplyr tibble mutate
+#' @importFrom rlang .data
 #' 
 #' @export
 
 getHMDcountries <- function(){
-	HMDXXX  <- read.csv("https://former.mortality.org/countries.csv",stringsAsFactors = FALSE)
-	HMDXXX  <- HMDXXX[!is.na(HMDXXX[,"ST_Per_LE_FY"]), ]
-	HMDXXX$Subpop.Code
+  
+  xpath <- "/html/body/div[1]/div/div[3]"
+  html <- read_html("https://www.mortality.org")
+  
+  links <-
+    html |>
+    html_element(xpath=xpath) |>
+    html_elements("a") |>
+    html_attr("href")
+  cntry_names <-
+    html |> 
+    html_element(xpath=xpath) |> 
+    html_elements("a") |> 
+    html_text2()
+  
+  # compose table and extract country code from links:
+  tibble(Country= cntry_names, 
+         link = links) |> 
+    mutate(CNTRY =  sub(".*=", "", .data$link))
 }
 
 ############################################################################
@@ -99,28 +117,32 @@ getHMDcountries <- function(){
 #' 
 #' @return a character vector of 2-digit prefecture codes. Names correspond to the proper names given in the English version of the HMD webpage.
 #' 
-#' @importFrom rvest html_table
-#' @importFrom rvest read_html
-#' @importFrom rvest html_element
+#' @importFrom rvest html_table read_html html_element
+#' @importFrom dplyr tibble arrange
 #' 
 #' @export
 #' 
 #' @examples \dontrun{ (prefectures <- getJMDprefectures()) }
 #' 
 getJMDprefectures <- function(){
-  Prefs <- as.matrix( 
-    html_table(
-     html_element(
-      read_html("https://www.ipss.go.jp/p-toukei/JMD/index-en.html"), 
-      "table")
-    )[-c(1:4),1:4])
-	# Prefs <- as.matrix(XML::readHTMLTable("https://www.ipss.go.jp/p-toukei/JMD/index-en.html",
-	# 				which = 1, stringsAsFactors = FALSE, skip.rows = c(1:4)))
-	# get codes. rows read from left to right
-  Prefectures <- c(matrix(sprintf("%.2d", 0:47), byrow = TRUE, ncol = 4))
+  jmd_url <- "https://www.ipss.go.jp/p-toukei/JMD/index-en.html"
+  
+  tab <-
+    read_html(jmd_url) |>
+    html_element("table") |>
+    html_table() |>
+    as.matrix() 
+  
+  Prefs <- tab[-c(1:4),1:4]
 
-	names(Prefectures) <- c(Prefs)
-	Prefectures[order(Prefectures)]
+	# form codes. rows read from left to right
+  Codes <- c(matrix(
+    sprintf("%.2d", 0:47), 
+    byrow = TRUE, 
+    ncol = 4))
+
+	tibble(Prefecture = c(Prefs), Code = c(Codes)) |>
+	  arrange(Code)
 }
 
 ############################################################################
@@ -138,39 +160,107 @@ getJMDprefectures <- function(){
 #' @examples \dontrun{ (provs <- getCHMDprovinces()) }
 #' 
 getCHMDprovinces <- function(){
-	# it's a small list, so why both scraping?-- include "can" for posterity.
+	# it's a small list, so why bother scraping?-- include "can" for posterity.
 	sort(c("can","nfl","pei","nsc","nbr","que","ont","man","sas","alb","bco","nwt","yuk"))
 }
 
 #' @title internal function for grabbing the available data item names for a given country.
 #' 
-#' @description called by \code{readHMDweb()}. This assumes that \code{CNTRY} is actually available in the HFD. 
+#' @description called by \code{readHMDweb()} to find file urls. This assumes that \code{CNTRY} is actually available in the HFD. 
 #' 
 #' @param CNTRY character. HMD country short code.
-#' @param username character. Your HMD user id usually the email address you registered with the HMD under.
-#' @param password character. Your HMD password.
 
 #' 
-#' @return character vector of item names. These are the file base names, and only need the extension \code{.txt} added in order to get the file name.
+#' @return a tibble of all available data items for the selected country. There are several useful identifiers that can help determine the appropriate file, including the `measure`, `lexis`, `sex` and interval information, as detected from the item names.
 #' 
-#' @importFrom httr GET content authenticate config
-#' @importFrom XML getHTMLLinks htmlParse
+#' @importFrom rvest read_html html_elements html_text2 html_attr
+#' @importFrom dplyr case_when mutate tibble filter select
 #' @export
 #' 
-getHMDitemavail <- function(CNTRY, username, password){
-	# It seems this function will only worked if you are logged in
-	# CountryURL      <- paste0("https://www.humanfertility.org/cgi-bin/",
-	# 		"country.php?country=",CNTRY)
-	CountryURL      <- paste0("https://former.mortality.org/hmd/", CNTRY, "/STATS/")
-	# vector of names of tabs on each HFD page
-	tab_html    <- httr::content(
-			        httr::GET(CountryURL,
-					httr::authenticate(username, password),
-					httr::config(ssl_verifypeer = 0L)))
-
-	parsed_html <- XML::htmlParse(tab_html)
-	all_links   <- XML::getHTMLLinks(parsed_html)
-	item_txt    <- all_links[grepl(all_links,pattern=".txt")]
-    item_lookup <- gsub(item_txt, pattern = ".txt", replacement = "")
-	return(item_lookup)
+getHMDitemavail <- function(CNTRY){
+  
+  CountryURL <- paste0("https://www.mortality.org/Country/Country?cntr=", CNTRY)
+  
+  html <- read_html(CountryURL)
+  
+  # untested!
+  years <-
+    html |>
+    html_elements("table") |>
+    html_elements("tr")|>
+    html_elements("a") |>
+    html_text2()
+  
+  # untested!
+  links <-
+    html |>
+    html_elements("table") |>
+    html_elements("tr")|>
+    html_elements("a") |>
+    html_attr("href")
+  
+  item_table <- 
+    tibble(link = links, years2 = years) |>
+    filter(! years2 %in% c("\r txt\r","\r pdf\r","html")) |>
+    mutate(base = basename(link),
+           item = gsub(base, pattern = ".txt", replacement = ""),
+           measure = case_when(grepl(item, pattern = "E0") ~ "Life Expectancy",
+                               grepl(item, pattern = "lt") ~ "Lifetables",
+                               grepl(item, pattern = "Births") ~ "Births",
+                               grepl(item, pattern = "Deaths") ~ "Deaths",
+                               grepl(item, pattern = "Population") ~ "Population",
+                               grepl(item, pattern = "Exposures") ~ "Exposures",
+                               grepl(item, pattern = "Mx")~ "Rates"),
+           lexis = case_when(grepl(item, pattern = "lexis") ~ "triangle",
+                             grepl(item, pattern = "E0coh") ~ "cohort",
+                             grepl(item, pattern = "c") ~ "age-cohort",
+                             grepl(item, pattern = "E0per") ~ "period",
+                             grepl(item, pattern = "per") ~ "age-period",
+                             measure %in% c("Deaths","Population","Exposures","Rates") ~ "age-period",
+                             measure == "Births" ~ "period"),
+           age_interval = case_when(lexis == "cohort" ~ NA_integer_,
+                                    lexis == "period"  ~ NA_integer_,
+                                    years2 %in% c("1x1","1x5","1x10") ~ 1L,
+                                    years2 %in% c("5x1","5x5","5x10") ~ 5L,
+                                    years2 == "Lexis" ~ 1L,
+                                    years2 == "1-year" ~ 1L,
+                                    years2 == "5-year" ~ 5L),
+           period_interval = case_when(grepl(lexis,pattern = "period") & 
+                                         years2 %in% c("1x1","5x1") ~ 1L,
+                                       grepl(lexis,pattern = "period") & 
+                                         years2 %in% c("1x5","5x5") ~ 5L,
+                                       grepl(lexis,pattern = "period") & 
+                                         years2 %in% c("1x10","5x10") ~ 10L,
+                                       measure == "Births" ~ 1L,
+                                       years2 == "Lexis" ~ 1L,
+                                       measure == "Population" ~0L,
+                                       item == "E0per" ~ 1L,
+                                       item == "E0per_1x5" ~ 5L,
+                                       item == "E0per_1x10" ~ 10L,
+                                       TRUE ~ NA_integer_),
+           cohort_interval = case_when(grepl(lexis,pattern = "cohort") & 
+                                         years2 %in% c("1x1","5x1") ~ 1L,
+                                       grepl(lexis,pattern = "cohort") & 
+                                         years2 %in% c("1x5","5x5") ~ 5L,
+                                       grepl(lexis,pattern = "cohort") & 
+                                         years2 %in% c("1x10","5x10") ~ 10L,
+                                       item == "E0coh" ~ 1L,
+                                       item == "E0coh_1x5" ~ 5L,
+                                       item == "E0coh_1x10" ~ 10L,
+                                       lexis == "triangle" ~ 1L,
+                                       measure == "Births" ~ 1L),
+           sex = case_when(substr(item,1,1) == "m" ~ "male",
+                           substr(item,1,1) == "f" ~ "female",
+                           substr(item,1,1) == "b" ~ "total",
+                           measure %in% c("Births","Deaths","Exposures","Rates","Life Expectancy","Population") ~ "all")) |>
+  select(item, measure, sex, lexis, age_interval, period_interval, cohort_interval, link)
+    
+    
+	return(item_table)
 }
+
+
+## load globals to avoid "no visible binding" NOTEs in package checks:
+utils::globalVariables(c("years2", "link", "base","item","measure",
+                         "sex","lexis","age_interval","Age","ARDY","Cohort",
+                         "period_interval","cohort_interval","Code"))

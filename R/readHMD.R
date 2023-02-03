@@ -53,17 +53,11 @@ readHMD <- function(filepath, fixup = TRUE, ...){
 #' 
 #' @return data.frame of the HMD product, read as as \code{readHMD()} would read it.
 #'
-#' @details This function currently points to a mirror of the former site. 
-#' This is a temporary patch until an API is released. To read data live from 
-#' the web, you need to register at the `former` HMD website: 
-#' \url{https://former.mortality.org}. It is advised to pass in your credentials 
-#' as named vectors rather than directly as character strings, so that they are 
-#' not saved directly in your code. See examples. One option is to just save 
-#' them in your Rprofile file.
+#' @details This function points to the new HMD website (from June 2022) rather than the mirror of the old site that it temporarily pointed to; If your credentials fail then a likely reason is that you need to re-register at the new HMD website \href{https://www.mortality.org/Account/UserAgreement}{https://www.mortality.org/Account/UserAgreement}. As soon as you register, your new credentials should work.
 #' 
-#' @importFrom utils read.csv
-#' @importFrom utils read.table
-#' @importFrom httr GET content authenticate config
+#' @importFrom rvest html_form_set session html_form session_submit session_jump_to
+#' @importFrom httr content status_code
+#' @importFrom dplyr pull
 #' @export
 #' 
 readHMDweb <- function(CNTRY, item, username, password, fixup = TRUE){
@@ -88,14 +82,42 @@ readHMDweb <- function(CNTRY, item, username, password, fixup = TRUE){
 		}
 	}
 	
-	ctrylist    <- read.csv(
-			         "https://former.mortality.org/countries.csv",
-			         header = TRUE,
-			         as.is = TRUE)
+  # Get logged in, starting here
+  loginURL <- "https://www.mortality.org/Account/Login"
+  # concatenate the login string
+  
+  html <- session(loginURL)
+  
+  # olny one form on login page:
+  pgform    <- html_form(html)[[1]]  
+  
+  # # hack because rvest doesn't record where we were??
+  pgform$action <- loginURL
+  pgform$url    <- loginURL
+  the_token     <- pgform$fields["__RequestVerificationToken"]
+  filled_form   <- suppressWarnings(html_form_set(pgform,
+                                 Email = username,
+                                 Password = password,
+                                 '__RequestVerificationToken' =
+                                   unlist(the_token)["__RequestVerificationToken.value" ]))
+  # test once credentials validated
+  html2 <- session_submit(html, filled_form)
+
+  Continue <- status_code(html2) == 200
+  if (!Continue) {
+    stop(paste0("login didn't work. \nMaybe your username or password are off?
+If your username and password are from before July 2022
+then you'll need to re-register for HMD, starting here:
+
+https://www.mortality.org/Account/UserAgreement\n
+We no longer refer to the mirror website https://www.former.mortality.org
+Those shenanigans were just a temporary patch to buy time to recode for the new site!\n"))
+  }
+  
+	ctrylist    <- getHMDcountries()
 			
-	ctrylookup  <- data.frame(Country = ctrylist$Country, 
-			                  CNTRY = ctrylist$Subpop.Code.1, 
-							  stringsAsFactors = FALSE)
+	ctrylookup  <- ctrylist |>
+	  select(-"link")
 	
 	# get CNTRY
 	if (missing(CNTRY)){    
@@ -117,50 +139,67 @@ readHMDweb <- function(CNTRY, item, username, password, fixup = TRUE){
 	stopifnot(length(CNTRY) == 1)
 	
 	# repeat for item
-	itemlookup <- getHMDitemavail(CNTRY, username = username, password = password)
+	item_table <- getHMDitemavail(CNTRY) 
+	
+	itemlookup <-
+	  item_table |>
+	  pull("item")
+	
 	if (missing(item)){    
-		cat("\nCNTRY missing\n")
+		cat("\nitem missing\n")
 		if (interactive()){
 			item <- select.list(choices = itemlookup, multiple = FALSE, title = "Select item Code")
 		} else {
-			stop("item should be one of these:\n",paste(itemlookup, collapse = ",\n"))
+		  cat("\nTry running getHMDitemavail() if you're not sure which item you want.\n")
+			stop(paste0("item should be one of these:\n",paste(itemlookup, collapse = ", "),"\n"))
 		}
 	}
 	if (!(item %in% itemlookup)){
-		cat("\nCNTRY not found\n")
+		cat("\nitem not found\n")
 		if (interactive()){
 			item <- select.list(choices = itemlookup, multiple = FALSE, title = "Select item Code")
 		} else {
+		  cat("\nTry running getHMDitemavail() if you're not sure which item you want.\n")
 			stop("item should be one of these:\n",paste(itemlookup, collapse = ",\n"))
 		}
 	}
 	stopifnot(length(item) == 1)
-
+  .item = item
+	stub_url <- item_table |>
+	  filter(item == .item) |>
+	  pull("link")
 	
-	path <- paste0("https://former.mortality.org/hmd/", CNTRY, "/STATS/", item)
-    TEXT    <- httr::GET(path, 
-					httr::authenticate(username, password), 
-					httr::config(ssl_verifypeer = 0L))
-	status  <- httr::http_status(TEXT)
-	if (grepl(status$category,pattern="error")){
-		cat("Sorry something went wrong, maybe a typo?")
-		return(NULL)
-	}
-
-	DF      <- read.table(
-			      text = httr::content(TEXT,encoding = "UTF-8"), 
-			      header = TRUE, 
-			      skip = 2, 
-			      na.strings = ".", 
-			      as.is = TRUE)
+	grab_url <- paste0("https://www.mortality.org", stub_url)
 	
-	if (fixup){
-		DF        <- HMDparse(DF, filepath = item)
-	}
+	# TR: This session jump doesn't seem to be working
+	# as expected; grab url brings me to text file
+	# if I paste it in a tab (logged in), but when I
+	# do a session_jump_to() it then I seem to stay at
+	# the login page, so I'm not seeing the 
+	data_grab <- session_jump_to(html2, 
+	                             url = grab_url)
+
+
+	# TR: this is all test code, not expected to run yet
+	con <- 
+	  content(data_grab$response, 
+	          as = "text", 
+	          encoding = "UTF-8") |>
+	  textConnection()
+
+	DF <-
+	  read.table(con,
+	             header = TRUE, 
+	             skip = 2, 
+	             na.strings = ".", 
+	             as.is = TRUE) |>
+	  HMDparse(filepath = grab_url)
+	close(con)
+	# Continue <- status_code(data_grab) == 200
+	closeAllConnections()
 	
   invisible(DF)
 } # end readHMDweb()
-
 ############################################################################
 # readJMDweb()
 ############################################################################
