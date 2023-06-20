@@ -2,8 +2,8 @@ Package: HMDHFDplus
 Type: Package
 Title: Read Human Mortality Database and Human Fertility Database Data
         from the Web
-Version: 2.0.1
-Date: 2023-02-03
+Version: 2.0.3
+Date: 2023-06-20
 Authors@R: c(
    person("Tim", "Riffe", role = c("aut", "cre"), 
           email = "tim.riffe@gmail.com"),
@@ -26,7 +26,7 @@ Suggests: RCurl
 RoxygenNote: 7.2.3
 Language: 'en-US'
 NeedsCompilation: no
-Packaged: 2023-02-03 08:54:41 UTC; tim
+Packaged: 2023-06-20 10:25:16 UTC; tim
 Author: Tim Riffe [aut, cre],
   Carl Boe [aut],
   Jason Hilton [aut],
@@ -34,4 +34,4 @@ Author: Tim Riffe [aut, cre],
   Stephen Holzman [ctb]
 Maintainer: Tim Riffe <tim.riffe@gmail.com>
 Repository: CRAN
-Date/Publication: 2023-02-03 09:40:13 UTC
+Date/Publication: 2023-06-20 10:50:02 UTC
