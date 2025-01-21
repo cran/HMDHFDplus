@@ -17,7 +17,7 @@
 #' @description called by \code{readHFD()} and \code{readHFDweb()}. We assume there are no factors in the given data.frame and that it has been read in from the raw text files using something like: \code{ read.table(file = filepath, header = TRUE, skip = 2, na.strings = ".", as.is = TRUE)}. This function is visible to users, but is not likely needed directly.
 #' 
 #' @param DF a data.frame of HFD data, freshly read in.
-#' 
+#' @param item character string of the data product code, which is the base file name, but excluding the country code and file extension \code{.txt}. For instance, \code{"mabRR"} or \code{"tfrVHbo"}. This will be passed in, potentially, by the reader.
 #' @return DF same data.frame, modified so that columns are of a useful class. If there were open age categories, such as \code{"-"} or \code{"+"}, this information is stored in a new dummy column called \code{OpenInterval}.
 #' 
 #' @details This parse routine is based on the subjective opinions of the author...
@@ -26,7 +26,7 @@
 #' @importFrom rlang .data
 #' @export
 #' 
-HFDparse <- function(DF){
+HFDparse <- function(DF, item = NULL){
 	if (any(c("Age","Cohort","ARDY") %in% colnames(DF))){
 		# assuming that if there are two such columns that the open age, etc, rows will always agree.    
 
@@ -49,6 +49,14 @@ HFDparse <- function(DF){
 			         Cohort = parse_number(.data$Cohort)) |>
 			  relocate(.data$OpenInterval, .after = last_col())
 		}
+	  # HT AvR via student comment. For open intervals in HFD,
+	  # the numerator, but not the denominator, is Open...
+	  if (is.null(item)){
+	    item <- "bla"
+	  }
+	  if (grepl(pattern = "expos", x = item)){
+	    DF$OpenInterval <- FALSE
+	  }
 	}
 	DF
 }
@@ -129,32 +137,25 @@ getHFDcountries <- function(){
 getHFDdate <- function(CNTRY){
   CountryURL <- paste0("https://www.humanfertility.org/Country/Country?cntr=", CNTRY)
   html       <- read_html(CountryURL)
-  xpath      <- "/html/body/div[1]/div/div[3]/div[1]/div[1]/div[2]/span"
-
+  # xpath      <- "/html/body/div[1]/div/div[3]/div[1]/div[1]/div[2]/span"
+xpath <- "/html/body/div[1]/div/div[4]/div/span[2]"
   LastUpdate <- 
     html |>  
     html_elements(xpath = xpath) |> 
-    html_text2() |>
-    sub(pattern = ".*: ", replacement = "", ) |>
-    dmy()
+    html_text2() |> 
+      str_split("=") |> 
+      unlist() |> 
+      rev() 
+  LastUpdate <- LastUpdate[1]
+   
   
   if(length(LastUpdate)==0){
     stop("I can't find the date of the latest update to the data for this
           country. The Human Fertility Database website may have changed")
   }
-  date_out <- paste0(year(LastUpdate),
-                     str_pad(month(LastUpdate),
-                             width = 2,
-                             side="left",
-                             pad="0"),
-                     str_pad(day(LastUpdate),
-                             width = 2,
-                             side="left",
-                             pad="0"))
-  
-  
+
   # this isn't a date string, just 8 digits squashed together yyyymmdd
-  date_out
+  LastUpdate
 }
 
 
@@ -177,6 +178,8 @@ getHFDdate <- function(CNTRY){
 #' @importFrom rvest read_html html_table html_elements html_text2 html_attr
 #' @importFrom stringr str_split
 #' @importFrom rlang .data
+#' @importFrom dplyr across
+#' @importFrom tidyselect where
 #' 
 #' @export
 #' 
@@ -188,6 +191,12 @@ getHFDitemavail <- function(CNTRY){
     X |>
       clean_names() |>
       rename("measure" = .data$x) |> 
+
+      # "Converting Numeric Columns to Character Columns"
+      # e.g., on HFD, item = "tfrRR", 
+      # `census_or_register_based_parity_estimates` is numeric 
+      mutate(across(where(is.numeric),as.character))  |>     
+            
       pivot_longer(-.data$measure,names_to = "subtype",values_to = "years") |> 
       filter(.data$measure != "")
   }

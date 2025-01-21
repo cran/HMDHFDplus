@@ -16,6 +16,7 @@
 #' 
 #' @param filepath path or connection to the HFD text file, including .txt suffix.
 #' @param fixup logical. Should columns be made more user-friendly, e.g., forcing Age to be integer?
+#' @param item character string of the data product code, which is the base file name, but excluding the country code and file extension \code{.txt}. For instance, \code{"mabRR"} or \code{"tfrVHbo"}. This will be passed in, potentially, by the reader.
 #' @param ... other arguments passed to \code{read.table}, not likely needed.
 #' 
 #' @return data.frame of standard HFD output, except the Age column has been cleaned, and a new open age indicator column has been added. 
@@ -29,10 +30,10 @@
 #' @note original function submitted by Josh Goldstein, modified by Tim Riffe.
 #' 
 
-readHFD <- function(filepath, fixup = TRUE, ...){
+readHFD <- function(filepath, fixup = TRUE, item = NULL, ...){
     DF      <- suppressWarnings(read.table(file = filepath, header = TRUE, skip = 2, na.strings = ".", as.is = TRUE, ...))
     if (fixup){
-      DF      <- HFDparse(DF)
+      DF      <- HFDparse(DF, item = item)
     }
     invisible(DF)
 }
@@ -191,7 +192,7 @@ https://www.humanfertility.org/Account/UserAgreement"))
 	  content(encoding = "UTF-8") |> 
 	  cat(file=tmp)
 	
-	DF <- readHFD(tmp, fixup = fixup)
+	DF <- readHFD(tmp, fixup = fixup, item = .item)
 	
 	unlink(tmp)
 	#closeAllConnections()

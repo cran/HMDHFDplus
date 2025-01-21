@@ -4,12 +4,14 @@
 \alias{readHFD}
 \title{\code{readHFD()} reads a standard HFD .txt table as a \code{data.frame}}
 \usage{
-readHFD(filepath, fixup = TRUE, ...)
+readHFD(filepath, fixup = TRUE, item = NULL, ...)
 }
 \arguments{
 \item{filepath}{path or connection to the HFD text file, including .txt suffix.}
 
 \item{fixup}{logical. Should columns be made more user-friendly, e.g., forcing Age to be integer?}
+
+\item{item}{character string of the data product code, which is the base file name, but excluding the country code and file extension \code{.txt}. For instance, \code{"mabRR"} or \code{"tfrVHbo"}. This will be passed in, potentially, by the reader.}
 
 \item{...}{other arguments passed to \code{read.table}, not likely needed.}
 }
